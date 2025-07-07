@@ -1,0 +1,7 @@
+__pycache__
+*.csv
+*.log
+logs_backup
+logs_backup/*
+logs
+logs/*
