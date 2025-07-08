@@ -2,12 +2,14 @@ import argparse
 import time
 from datetime import datetime
 from config.scraper_config import SCRAPER_CONFIG
+from utils import deduplicator
 from utils.mongodb import MongoDBClient
 from utils.data_exporter import DataExporter
 from utils.monitoring import ScraperMonitor
 from utils.proxy_manager import ProxyManager
 from utils.rate_limiter import RateLimiter
 from utils.data_validator import PropertyDataValidator
+from utils.deduplicator import Deduplicator
 
 from scrapers.raovat321.listing_scraper import RaoVat321ListingScraper
 from scrapers.raovat321.detail_scraper import RaoVat321DetailScraper
@@ -66,6 +68,8 @@ def main():
     validator = PropertyDataValidator()
     rate_limiter = RateLimiter()
     
+    deduplicator = Deduplicator(db_client)
+    
     # Initialize proxy manager if requested
     proxy_manager = ProxyManager() if args.use_proxies else None
     
@@ -97,10 +101,12 @@ def main():
                 # Scrape listings
                 listings = listing_scraper.scrape()
                 logger.info(f"Found {len(listings)} listings for {source}")
+
+                new_listings = deduplicator.filter_new_listings(source, listings)
                 
                 # Validate and clean listings
                 valid_listings = []
-                for listing in listings:
+                for listing in new_listings:
                     is_valid, errors = validator.validate_listing(listing)
                     if is_valid:
                         cleaned_listing = validator.clean_data(listing)

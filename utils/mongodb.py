@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List, Optional
 from pymongo import MongoClient, UpdateOne
 from pymongo.errors import BulkWriteError, PyMongoError
@@ -267,7 +268,37 @@ class MongoDBClient:
     def _validate_detail_data(self, detail_data: Dict) -> bool:
         """Validate detail data before update"""
         return bool(detail_data) and isinstance(detail_data, dict)
+    
+    #deduplicate
+    def get_existing_ids(self, source: str, source_ids: list[str]) -> set[str]:
+        """
+        Checks a list of source_ids against the database and returns a set of IDs that already exist.
+        """
+        collection = self.get_collection(source)  
 
+        if collection is None:
+            logger.warning(f"Collection for source '{source}' not found. Cannot check for existing IDs.")
+            return set()
+        
+        logger.debug(f"[{source}] Checking for {len(source_ids)} existing IDs in the database...")
+        start_time = time.time()
+
+        try:
+            query = {'source_id': {'$in': source_ids}}
+            projection = {'source_id': 1, '_id': 0}
+            
+            cursor = collection.find(query, projection)
+            
+            existing_ids = {item['source_id'] for item in cursor}
+            
+            duration = time.time() - start_time
+            logger.debug(f"[{source}] Found {len(existing_ids)} existing IDs in {duration:.2f} seconds.")
+            
+            return existing_ids
+        except Exception as e:
+            logger.error(f"[{source}] An error occurred while fetching existing IDs: {e}")
+            return set()
+        
     def close(self):
         try:
             self.client.close()
