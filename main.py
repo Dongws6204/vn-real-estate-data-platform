@@ -101,11 +101,12 @@ def main():
                 # Scrape listings
                 listings = listing_scraper.scrape()
                 logger.info(f"Found {len(listings)} listings for {source}")
-
-                new_listings = deduplicator.filter_new_listings(source, listings)
+                # Deduplicate listings - level 1
+                new_listings = deduplicator.classify_listings(source, listings)['new']
                 
                 # Validate and clean listings
                 valid_listings = []
+
                 for listing in new_listings:
                     is_valid, errors = validator.validate_listing(listing)
                     if is_valid:

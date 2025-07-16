@@ -1,45 +1,72 @@
 import logging
-
+from typing import List, Dict, Optional
 from utils.mongodb import MongoDBClient
 
 logger = logging.getLogger(__name__)
 
+
 class Deduplicator:
     def __init__(self, db_client: MongoDBClient):
-        # ...
+        """
+        Deduplicator is responsible for identifying new, updatable, or duplicate listings
+        based on their source_id and content.
+        """
         self.db_client = db_client
 
-    def filter_new_listings(self, source: str, listings: list[dict]) -> list[dict]:
-        if not listings:
-            return []
+    def classify_listings(self, source: str, listings: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Classify listings into new, update, and duplicate based on source_id and content.
 
-        incoming_ids = [listing['source_id'] for listing in listings if 'source_id' in listing]
-        
-        listings_with_id = len(incoming_ids)
-        listings_without_id = len(listings) - listings_with_id
-        
-        if listings_without_id > 0:
-            logger.warning(f"[{source}] {listings_without_id} listings were found without a 'source_id' and will be skipped in deduplication check.")
-            
-        if not incoming_ids:
-            return [] 
-            
-        existing_ids_set = self.db_client.get_existing_ids(source, incoming_ids)
-        
-        new_listings = [
-            listing for listing in listings 
-            if listing.get('source_id') and listing.get('source_id') not in existing_ids_set
-        ]
-        
+        Args:
+            source (str): Source name (e.g., 'raovat321').
+            listings (List[Dict]): Listings scraped from the source.
+
+        Returns:
+            Dict[str, List[Dict]]: {
+                'new': [...],
+                'update': [...],
+                'duplicate': [...]
+            }
+        """
+        new, to_update, duplicates = [], [], []
+
+        # Step 1: Extract all source_ids
+        source_ids = [item['source_id'] for item in listings if 'source_id' in item]
+        existing_ids = self.db_client.get_existing_ids(source, source_ids)
+
+        for listing in listings:
+            source_id = listing.get('source_id')
+
+            if not source_id:
+                logger.warning(f"[{source}] Listing without source_id skipped.")
+                continue
+
+            if source_id in existing_ids:
+                # TODO: Add meaningful comparison for updates here
+                duplicates.append(listing)
+            else:
+                new.append(listing)
+
         logger.info(
-            f"[{source}] Deduplication summary: "
-            f"Incoming={len(listings)}, "
-            f"Existing={len(existing_ids_set)}, "
-            f"New={len(new_listings)}"
+            f"[{source}] Classification Summary - New: {len(new)}, Update: {len(to_update)}, Duplicate: {len(duplicates)}"
         )
-        
-        return new_listings
 
-    # def find_cross_source_duplicates(self, listing_data):
-    #     # Logic deduplicatie 2
-    #     pass
+        return {
+            'new': new,
+            'update': to_update,
+            'duplicate': duplicates
+        }
+
+    def _needs_update(self, existing: Dict, incoming: Dict) -> bool:
+        """
+        Check whether a listing needs updating based on field differences.
+        (Placeholder – to be implemented.)
+        """
+        return False
+
+    def _check_cross_source_duplicate(self, listing: Dict) -> Optional[Dict]:
+        """
+        Check for cross-source duplicates.
+        (Placeholder – to be implemented.)
+        """
+        return None
