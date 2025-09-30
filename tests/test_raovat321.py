@@ -1,4 +1,5 @@
 import pytest
+
 from bs4 import BeautifulSoup
 from scrapers.raovat321.listing_scraper import RaoVat321ListingScraper
 from scrapers.raovat321.detail_scraper import RaoVat321DetailScraper

@@ -20,10 +20,11 @@ MONGODB_CONFIG = {
     'database': 'property_data',
     'collections': {
         'raovat321': 'raovat321',
-        'batdongsan': 'batdongsan',
+        'batdongsanvn': 'batdongsanvn',
         'nhadat247': 'nhadat247',
         'nhadat24h': 'nhadat24h',
         'cafeland': 'cafeland',
     },
-    'uri': 'mongodb+srv://22026532:Abcxyz2004%40@cluster0.shgl2uj.mongodb.net/property_data?retryWrites=true&w=majority'
+    'uri': 'mongodb+srv://22026532:Abcxyz2004%40@cluster0.shgl2uj.mongodb.net/property_data?retryWrites=true&w=majority&tls=true',
+#     'uri': 'mongodb+srv://property-user:lab-property-2025@cluster0.szt6l6p.mongodb.net?retryWrites=true&w=majority&tls=true',
 }
