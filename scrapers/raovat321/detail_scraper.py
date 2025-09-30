@@ -20,7 +20,7 @@ class RaoVat321DetailScraper(DetailScraper):
             detail_data = {
                 'features': self.extract_features(soup),
                 'description': self.extract_description(soup),
-                'contact_info': self.extract_contact_info(soup),
+                # 'contact_info': self.extract_contact_info(soup),
                 'media': self.extract_media(soup),
                 'metadata': self.extract_metadata(soup),
                 'crawled': True,

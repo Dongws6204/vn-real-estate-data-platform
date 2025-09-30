@@ -1,7 +1,9 @@
 __pycache__
+myenv/
 *.csv
 *.log
 logs_backup
 logs_backup/*
 logs
-logs/*
+logs/*myenv/  
+ 

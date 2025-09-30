@@ -23,7 +23,7 @@ SCRAPER_CONFIG = {
         'timeout': 30,
         'retry_attempts': 3
     },
-    'batdongsan': {
+    'batdongsanvn': {
         'base_url': 'https://batdongsan.com.vn/ban-nha-dat',
         'listings_url': 'https://batdongsan.com.vn/ban-nha-dat/p{}',
         'max_pages': 10,

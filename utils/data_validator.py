@@ -1,5 +1,5 @@
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from config.logging_config import setup_logger
 
@@ -62,7 +62,7 @@ class PropertyDataValidator:
             cleaned['contact_info'] = self._clean_contact_info(cleaned['contact_info'])
             
         return cleaned
-    
+
     def _validate_url(self, url: str) -> bool:
         """Validate URL format"""
         try:
@@ -146,3 +146,5 @@ class PropertyDataValidator:
         if 'name' in contact:
             cleaned['name'] = self._clean_text(contact['name'])
         return cleaned
+    
+    

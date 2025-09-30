@@ -11,7 +11,7 @@ class ProxyManager:
         self.proxies = []
         self.working_proxies = {}
         self.failed_proxies = {}
-        self.proxy_timeout = 10
+        self.proxy_timeout = 5
         self.max_failures = 3
         self.check_interval = timedelta(minutes=30)
         
@@ -32,6 +32,8 @@ class ProxyManager:
     def get_proxy(self) -> Optional[Dict[str, str]]:
         """Get a working proxy with formatted structure"""
         if not self.proxies:
+            logger.warning("No proxies available")
+            self._refresh_proxies()
             return None
 
         working_proxies = [p for p in self.proxies 
