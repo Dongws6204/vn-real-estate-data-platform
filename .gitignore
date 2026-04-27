@@ -5,5 +5,5 @@ myenv/
 logs_backup
 logs_backup/*
 logs
-logs/*myenv/  
- 
+logs/*myenv/ 
+ .env
