@@ -1,19 +1,23 @@
 import argparse
+import os
 import time
+import json
+import uuid
 from datetime import datetime
+from dotenv import load_dotenv
+from confluent_kafka import Producer
 
-from bson import ObjectId
+# Load variables from .env file
+load_dotenv()
+
 from config.scraper_config import SCRAPER_CONFIG
 from scrapers.batdongsan.detail_scraper import BatDongSanDetailScraper
 from scrapers.batdongsan.listing_scraper import BatDongSanListingScraper
-from utils import deduplicator
-from utils.mongodb import MongoDBClient
 from utils.data_exporter import DataExporter
 from utils.monitoring import ScraperMonitor
 from utils.proxy_manager import ProxyManager
 from utils.rate_limiter import RateLimiter
 from utils.data_validator import PropertyDataValidator
-from utils.deduplicator import Deduplicator
 
 from scrapers.raovat321.listing_scraper import RaoVat321ListingScraper
 from scrapers.raovat321.detail_scraper import RaoVat321DetailScraper
@@ -66,8 +70,27 @@ def get_scraper_for_source(source: str, config: dict):
 def main():
     args = parse_arguments()
     
+    # Kafka Producer Config
+    EH_NAMESPACE = os.getenv("EH_NAMESPACE", "default-namespace.servicebus.windows.net:9093")
+    TOPIC_NAME = os.getenv("TOPIC_NAME", "default-topic")
+    CONNECTION_STRING = os.getenv("EH_CONNECTION_STRING")
+    
+    conf = {
+        'bootstrap.servers': EH_NAMESPACE,
+        'security.protocol': 'SASL_SSL',
+        'sasl.mechanism': 'PLAIN',
+        'sasl.username': '$ConnectionString',
+        'sasl.password': CONNECTION_STRING,
+        'client.id': 'vn-real-estate-scraper',
+        'acks': 1
+    }
+    producer = Producer(conf)
+
+    def delivery_callback(err, msg):
+        if err: logger.error(f"Message delivery failed: {err}")
+        else: logger.info(f"Delivered to {msg.topic()} [{msg.partition()}] at {msg.offset()}")
+    
     # Initialize components
-    db_client = MongoDBClient()
     # deduplicator = Deduplicator()
     data_exporter = DataExporter()
     monitor = ScraperMonitor()
@@ -232,11 +255,6 @@ def main():
                 
                 logger.info(f"Valid listings: {len(valid_listings)}")
                 
-                # Store listings in database
-                if valid_listings:
-                    # db_client.bulk_upsert_listings(source, valid_listings, dedup=deduplicator)
-                    db_client.bulk_upsert_listings(source, valid_listings)
-                
                 if source == 'batdongsanvn': 
                     logger.info("Detected 'batdongsanvn' source. Running specialized batch detail scraping.")
             
@@ -245,11 +263,22 @@ def main():
                         full_listings = detail_scraper.scrape_details_in_batch(valid_listings)
                         
                         if full_listings:
-                            # Lưu toàn bộ kết quả vào DB
-                            db_client.upsert_listings(full_listings)
-                            logger.info(f"Successfully upserted {len(full_listings)} items for {source}.")
+                            # Send all results to Kafka
+                            for l in full_listings:
+                                key = l.get('source_id', str(uuid.uuid4())).encode('utf-8') if l.get('source_id') else None
+                                producer.produce(
+                                    topic=TOPIC_NAME,
+                                    key=key,
+                                    value=json.dumps(l, default=str, ensure_ascii=False).encode('utf-8'),
+                                    callback=delivery_callback
+                                )
+                                producer.poll(0)
+                        
+                            logger.info(f"Successfully sent {len(full_listings)} items to Kafka for {source}.")
                             for _ in full_listings:
                                 monitor.record_item_scraped()
+                            
+                            producer.flush()
                         
                     except Exception as e:
                         logger.error(f"Error during batch processing for {source}: {e}", exc_info=True)
@@ -266,23 +295,34 @@ def main():
                             # Scrape details
                             details = detail_scraper.get_detail(listing['url'])
                             if details:
-                                db_client.update_listing_detail(source, listing['source_id'], details)
+                                listing.update(details)
+                                key = listing.get('source_id', str(uuid.uuid4())).encode('utf-8') if listing.get('source_id') else None
+                                producer.produce(
+                                    topic=TOPIC_NAME,
+                                    key=key,
+                                    value=json.dumps(listing, default=str, ensure_ascii=False).encode('utf-8'),
+                                    callback=delivery_callback
+                                )
+                                producer.poll(0)
                                 monitor.record_item_scraped()
+                                
+                            time.sleep(2)
                                 
                         except Exception as e:
                             logger.error(f"Error scraping details for {listing['url']}: {str(e)}")
                             monitor.record_request(False, str(e))
                             continue
+                            
+                    producer.flush()
                     
                 # Export data
-                # all_listings = list(db_client.get_collection(source).find({}))
-                # if all_listings:
+                # if valid_listings:
                 #     if args.export_format == 'csv':
-                #         export_path = data_exporter.export_to_csv(all_listings)
+                #         export_path = data_exporter.export_to_csv(valid_listings)
                 #     elif args.export_format == 'json':
-                #         export_path = data_exporter.export_to_json(all_listings)
+                #         export_path = data_exporter.export_to_json(valid_listings)
                 #     else:
-                #         export_path = data_exporter.export_to_excel(all_listings)
+                #         export_path = data_exporter.export_to_excel(valid_listings)
                         
                 #     logger.info(f"Data exported to {export_path}")
                 
@@ -301,8 +341,6 @@ def main():
         logger.info("Scraping interrupted by user")
     except Exception as e:
         logger.error(f"Error during scraping: {str(e)}")
-    finally:
-        db_client.close()
 
 if __name__ == "__main__":
     main()

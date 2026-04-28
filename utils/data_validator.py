@@ -106,11 +106,13 @@ class PropertyDataValidator:
         """Validate contact information"""
         errors = []
         
-        if 'phone' in contact and not self.phone_pattern.match(contact['phone']):
-            errors.append("Invalid phone number format")
+        if 'phone' in contact and contact['phone']:
+            if not isinstance(contact['phone'], str) or not self.phone_pattern.match(contact['phone']):
+                errors.append("Invalid phone number format")
             
-        if 'email' in contact and not self.email_pattern.match(contact['email']):
-            errors.append("Invalid email format")
+        if 'email' in contact and contact['email']:
+            if not isinstance(contact['email'], str) or not self.email_pattern.match(contact['email']):
+                errors.append("Invalid email format")
             
         return errors
         
@@ -118,6 +120,7 @@ class PropertyDataValidator:
         """Clean text content"""
         if not text:
             return ""
+        text = str(text)
         # Remove extra whitespace
         text = " ".join(text.split())
         # Remove special characters
@@ -139,12 +142,12 @@ class PropertyDataValidator:
     def _clean_contact_info(self, contact: Dict) -> Dict:
         """Clean contact information"""
         cleaned = {}
-        if 'phone' in contact:
-            cleaned['phone'] = re.sub(r'[^\d+]', '', contact['phone'])
-        if 'email' in contact:
-            cleaned['email'] = contact['email'].lower().strip()
-        if 'name' in contact:
-            cleaned['name'] = self._clean_text(contact['name'])
+        if 'phone' in contact and contact['phone']:
+            cleaned['phone'] = re.sub(r'[^\d+]', '', str(contact['phone']))
+        if 'email' in contact and contact['email']:
+            cleaned['email'] = str(contact['email']).lower().strip()
+        if 'name' in contact and contact['name']:
+            cleaned['name'] = self._clean_text(str(contact['name']))
         return cleaned
     
     

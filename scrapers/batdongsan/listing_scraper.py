@@ -4,9 +4,8 @@ import re
 import time
 from typing import Dict, List,  Optional
 from bs4 import BeautifulSoup
-import pyautogui
+
 from scrapers.base.web_driver import webDriverManager
-from scrapers.base.cloudflare_slover import CloudflareSolver
 from utils.proxy_manager import ProxyManager
 from ..base.base_scraper import ListingScraper
 from ..base.utils import clean_text, extract_number, normalize_price
