@@ -8,3 +8,4 @@ logs
 logs/*myenv/ 
 .env
 
+cloud-recreate.md

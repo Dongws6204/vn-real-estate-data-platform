@@ -18,3 +18,18 @@ services:
           memory: 4G
 
     command: [ "python", "main.py", "--source", "all" ]
+
+  # Container chuyên chạy Kafka Consumer (Lấy data từ Event Hubs lưu vào MongoDB)
+  real-estate-consumer:
+    build: .
+    container_name: vn_real_estate_consumer
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    command: [ "python", "consumer.py" ]

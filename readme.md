@@ -47,10 +47,95 @@ vn-real-estate-data-platform/
 ├── main.py                  # Entrypoint to trigger ingestion streams
 └── requirements.txt         # Python dependencies
 ```
+---
+
+##  Quick Start (Docker) – Recommended
+
+This is the easiest and most stable way to run the entire data pipeline. Docker handles Chromium and Kafka core dependencies (C-librdkafka) for you, ensuring a clean and consistent environment.
 
 ---
 
-## Development & Local Setup
+### 1. Environment Variables Configuration (`.env`)
+
+Create a `.env` file in the root directory of the project (if it doesn’t exist) and add the following credentials:
+
+```env
+# AZURE EVENT HUBS CONFIG
+EH_NAMESPACE=your-namespace.servicebus.windows.net:9093
+TOPIC_NAME=your-topic-name
+EH_CONNECTION_STRING=Endpoint=sb://your-namespace...
+CONSUMER_GROUP=mongo-inserter-group
+
+# MONGODB ATLAS CONFIG
+MONGO_URI=mongodb+srv://<USER>:<PASS>@cluster0.mongodb.net/?retryWrites=true&w=majority
+MONGO_DB=real_estate_db
+MONGO_COLLECTION=listings_raw
+````
+
+---
+
+### 2. Build Docker Images (Initialize the system)
+
+```bash
+docker-compose build
+```
+
+docker compose up --build
+
+
+---
+
+### 3. Run the Full System (Scraper + Consumer)
+
+This command starts two background services:
+
+* **Scraper (Producer):** Crawls real estate data and publishes it to Azure Event Hubs
+* **Consumer:** Continuously reads data from Event Hubs and inserts it into MongoDB Atlas
+
+```bash
+docker-compose up -d
+```
+
+---
+
+### 4. Monitor System Logs (Track Data Flow)
+
+To monitor the scraper activity:
+
+```bash
+docker logs -f vn_real_estate_scraper
+```
+
+To monitor the consumer inserting data into MongoDB:
+
+```bash
+docker logs -f vn_real_estate_consumer
+```
+
+---
+
+### 5. Stop All Services
+
+```bash
+docker-compose down
+```
+
+---
+
+### 6. Run a Quick One-Off Scrape (Override Command)
+
+If you don’t want to run the full system and just want to test a specific scraper (e.g., `raovat321`) and verify Event Hubs ingestion:
+
+```bash
+docker-compose run --rm real-estate-scraper python main.py --source raovat321 --max-pages 2
+```
+
+---
+
+
+---
+
+## Development & Local Setup (Without Docker)
 
 While the core architecture relies on Cloud Managed Services, you can run the ingestion layer locally for development.
 
