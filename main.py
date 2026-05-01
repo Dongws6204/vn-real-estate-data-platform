@@ -7,6 +7,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 from confluent_kafka import Producer
 
+from scrapers.nhadat247.detail_scraper import NhaDat247DetailScraper
+from scrapers.nhadat247.listing_scraper import NhaDat247ListingScraper
+
 # Load variables from .env file
 load_dotenv()
 
@@ -58,6 +61,7 @@ def get_scraper_for_source(source: str, config: dict):
         'nhadat24h': (Nhadat24hListingScraper, Nhadat24hDetailScraper),
         'cafeland': (CafelandListingScraper, CafelandDetailScraper),
         'batdongsanvn': (BatDongSanListingScraper, BatDongSanDetailScraper),
+        'nhadat247': (NhaDat247ListingScraper, NhaDat247DetailScraper),
         # Add other scrapers here
     }
     

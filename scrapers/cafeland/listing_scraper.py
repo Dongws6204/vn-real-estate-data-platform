@@ -1,13 +1,28 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from bs4 import BeautifulSoup
 from datetime import datetime
+import time
 from ..base.base_scraper import ListingScraper
 from ..base.utils import clean_text, extract_number
+from ..base.web_driver import webDriverManager
 from config.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 
 class CafelandListingScraper(ListingScraper):
+    def get_page(self, url: str) -> Optional[BeautifulSoup]:
+        """Override get_page to use Selenium for JS-rendered content"""
+        try:
+            with webDriverManager(headless=True) as driver:
+                driver.get(url)
+                # Đợi một chút để JS render xong DOM
+                time.sleep(3)
+                html = driver.page_source
+                return BeautifulSoup(html, 'html.parser')
+        except Exception as e:
+            logger.error(f"Selenium failed fetching {url}: {str(e)}")
+            return None
+
     def scrape(self) -> List[Dict]:
         listings = []
         page = 1
