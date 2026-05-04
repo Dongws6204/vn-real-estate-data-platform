@@ -318,6 +318,12 @@ def main():
                             continue
                             
                     producer.flush()
+                
+                # Cleanup (Dọn dẹp Selenium Driver nếu có khởi tạo)
+                if hasattr(listing_scraper, 'close'):
+                    listing_scraper.close()
+                if hasattr(detail_scraper, 'close'):
+                    detail_scraper.close()
                     
                 # Export data
                 # if valid_listings:

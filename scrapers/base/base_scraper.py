@@ -28,8 +28,27 @@ class BaseScraper(ABC):
     def __init__(self, config: Dict):
         self.config = config
         self.session = curl_requests.Session(impersonate="chrome110")
+        self._driver = None
 
-    def get_page(self, url: str) -> Optional[BeautifulSoup]:
+    @property
+    def driver(self):
+        """Khởi tạo Lazy-load Selenium Driver. Chỉ bật khi nào thực sự được gọi đến để tiết kiệm RAM."""
+        if self._driver is None:
+            logger.info("Khởi tạo shared Selenium WebDriver...")
+            # Dùng lại class webDriverManager nhưng không xài context manager (with)
+            manager = webDriverManager(headless=self.config.get('headless', True))
+            self._driver = manager.__enter__()
+        return self._driver
+
+    def close(self):
+        """Hàm dọn dẹp, tắt trình duyệt sau khi scraper làm xong việc."""
+        if self._driver:
+            logger.info("Tắt shared Selenium WebDriver...")
+            self._driver.quit()
+            self._driver = None
+
+    def fetch_fast(self, url: str) -> Optional[BeautifulSoup]:
+        """Tốc độ cao: HTTP Request siêu tốc giả lập Chrome."""
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
@@ -38,34 +57,30 @@ class BaseScraper(ABC):
             }
             response = self.session.get(url, headers=headers, timeout=30)
             response.raise_for_status()
-            logger.info(f"Successfully fetched page with status code: {response.status_code}")
+            logger.info(f"[Fast] Successfully fetched: {url}")
             return BeautifulSoup(response.content, 'html.parser')
         except Exception as e:
-            logger.error(f"Error fetching {url} with curl_cffi: {e}", exc_info=True)
+            logger.error(f"[Fast] Error fetching {url} với curl_cffi: {e}")
             return None
-        #     headers = {'User-Agent': self.ua.random}
-        #     response = self.session.get(url, headers=headers, timeout=self.config.get('timeout', 30))
-        #     response.raise_for_status()
-            
-        #     if self.config.get('delay'):
-        #         sleep(self.config['delay'])
-                
-        #     return BeautifulSoup(response.text, 'html.parser')
-        # except Exception as e:
-        #     logger.error(f"Error fetching {url}: {str(e)}")
-        #     return None
+
+    def fetch_render(self, url: str) -> Optional[BeautifulSoup]:
+        """Hạng nặng: Dùng chung 1 Selenium Driver để Render page có JS/Cloudflare."""
+        try:
+            self.driver.get(url)
+            sleep(3) # Cân nhắc chuyển sleep này vào scrapers cụ thể nếu cần chờ element cụ thể
+            logger.info(f"[Render] Successfully fetched bằng Selenium: {url}")
+            return BeautifulSoup(self.driver.page_source, 'html.parser')
+        except Exception as e:
+            logger.error(f"[Render] Lỗi Selenium khi mở {url}: {e}")
+            return None
+
+    def get_page(self, url: str, use_js: bool = False) -> Optional[BeautifulSoup]:
+        """Hàm proxy mặc định. use_js=True để gọi fetch_render, ngược lại gọi fetch_fast"""
+        if use_js:
+            return self.fetch_render(url)
+        return self.fetch_fast(url)
 
 class ListingScraper(BaseScraper):
-
-    def _execute_selenium_task(self, url: str, extraction_logic: Callable[[WebDriver, str], Dict[str, Optional[str]]]) -> Dict [str, Optional[str]]:
-        try:
-            with webDriverManager(headless=True) as driver:
-                driver.get(url)
-                return extraction_logic(driver, url)
-        except Exception as e:
-            Logger.error(f"Error executing Selenium task for {url}: {str(e)}")
-            return {'author_name': None, 'contact_phone': None}
-
     @abstractmethod
     def scrape(self) -> List[Dict]:
         pass
