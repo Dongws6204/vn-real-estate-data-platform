@@ -17,7 +17,7 @@ SCRAPER_CONFIG = {
     },
     'cafeland': {
         'base_url': 'https://nhadat.cafeland.vn',
-        'listings_url': 'https://nhadat.cafeland.vn/nha-dat-ban/page-{}',
+        'listings_url': 'https://nhadat.cafeland.vn/nha-dat-ban/',
         'max_pages': 10,
         'delay': 2,
         'timeout': 30,

@@ -10,19 +10,6 @@ from config.logging_config import setup_logger
 logger = setup_logger(__name__)
 
 class CafelandListingScraper(ListingScraper):
-    def get_page(self, url: str) -> Optional[BeautifulSoup]:
-        """Override get_page to use Selenium for JS-rendered content"""
-        try:
-            with webDriverManager(headless=True) as driver:
-                driver.get(url)
-                # Đợi một chút để JS render xong DOM
-                time.sleep(3)
-                html = driver.page_source
-                return BeautifulSoup(html, 'html.parser')
-        except Exception as e:
-            logger.error(f"Selenium failed fetching {url}: {str(e)}")
-            return None
-
     def scrape(self) -> List[Dict]:
         listings = []
         page = 1
@@ -32,7 +19,8 @@ class CafelandListingScraper(ListingScraper):
                 url = f"{self.config['listings_url']}page-{page}"
                 logger.info(f"Scraping page {page}: {url}")
                 
-                soup = self.get_page(url)
+                # Dùng thuộc tính get_page của BaseScraper (mặc định lấy bằng curl_cffi tốc độ cao)
+                soup = self.get_page(url, use_js=False)
                 if not soup:
                     logger.error(f"Failed to get page {page}")
                     break
