@@ -110,11 +110,14 @@ class CafelandListingScraper(ListingScraper):
                 'area': extract_number(area_elem.text) if area_elem else None,
                 'location': clean_text(location_elem.text) if location_elem else None,
                 'description': clean_text(desc_elem.text) if desc_elem else None,
-                'contact': {
+                'contact_info': {
                     'name': clean_text(contact_name.text) if contact_name else None,
                     'update_time': clean_text(contact_time.text) if contact_time else None
                 },
-                'images': images,
+                'media': {
+                    'images': images,
+                    'videos': []
+                },
                 'is_vip': bool(element.find('div', class_='reals-typevip')),
                 'is_verified': bool(element.find('div', class_='reals-uytin')),
                 'crawled': False,

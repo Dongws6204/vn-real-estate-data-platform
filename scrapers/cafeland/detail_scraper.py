@@ -51,16 +51,6 @@ class CafelandDetailScraper(DetailScraper):
                     clean_fragments = [s for s in addr_clone.stripped_strings if s not in ["Location:", "▸", '"', '", "']]
                     basic_info['location'] = ", ".join(clean_fragments).strip(", ")
 
-            # Lấy tạm features để bóc giá và diện tích
-            features = self._extract_features(soup)
-            price_key = next((k for k in features if 'giá' in k.lower() or 'price' in k.lower()), None)
-            if price_key:
-                basic_info['price'] = self._parse_price(features[price_key])
-                
-            area_key = next((k for k in features if 'diện tích' in k.lower() or 'area' in k.lower()), None)
-            if area_key:
-                basic_info['area'] = extract_number(features[area_key])
-                
         except Exception as e:
             logger.error(f"Error extracting basic info: {str(e)}")
         return basic_info
@@ -68,11 +58,15 @@ class CafelandDetailScraper(DetailScraper):
     def _extract_features(self, soup: BeautifulSoup) -> Dict:
         features = {}
         try:
-            for item in soup.select('div.reals-info-group .col-item, div.reals-architecture .col-item'):
-                label = item.select_one('.infor-note, .title-item')
-                value = item.select_one('.infor-data, .value-item')
+            for item in soup.select('div.reals-house-item, div.col-item, .reals-info-group .col-item'):
+                label = item.select_one('.title-item, .infor-note')
+                value = item.select_one('.value-item, .infor-data')
                 if label and value:
-                    features[label.get_text(strip=True)] = value.get_text(strip=True)
+                    label_text = label.get_text(strip=True)
+                    # Bỏ qua giá và diện tích vì đã được lấy từ trang liệt kê (listing)
+                    if any(kw in label_text.lower() for kw in ['giá', 'diện tích', 'price', 'area']):
+                        continue
+                    features[label_text] = value.get_text(strip=True)
         except Exception as e:
             logger.error(f"Error extracting features: {str(e)}")
         return features
@@ -128,6 +122,10 @@ class CafelandDetailScraper(DetailScraper):
                         media['images'].append(href)
                 
                 media['images'] = media['images'][:3]
+                
+                video = carousel.select_one('a.videoks')
+                if video and video.get('data-url'):
+                    media['videos'].append(video.get('data-url'))
         except Exception as e:
             logger.error(f"Error extracting media: {str(e)}")
         return media
@@ -135,12 +133,23 @@ class CafelandDetailScraper(DetailScraper):
     def _extract_location(self, soup: BeautifulSoup) -> Dict:
         location = {'latitude': None, 'longitude': None}
         try:
-            map_iframe = soup.select_one('iframe')
+            map_iframe = soup.select_one('iframe[src*="maps.google.com"], .frame-map iframe, .reals-map iframe')
+            found_coords = False
+            
             if map_iframe and map_iframe.get('src'):
                 match = re.search(r'q=([\d.]+),([\d.]+)', map_iframe['src'])
                 if match:
                     location['latitude'] = float(match.group(1))
                     location['longitude'] = float(match.group(2))
+                    found_coords = True
+
+            if not found_coords:
+                # Quét thô toàn trang nếu iframe ẩn hoặc sai class
+                raw_coords = re.findall(r'(21\.\d+|10\.\d+),\s*(105\.\d+|106\.\d+|107\.\d+)', str(soup))
+                if raw_coords:
+                    location['latitude'] = float(raw_coords[0][0])
+                    location['longitude'] = float(raw_coords[0][1])
+
         except Exception as e:
             logger.error(f"Error extracting location coords: {str(e)}")
         return location
@@ -150,9 +159,9 @@ class CafelandDetailScraper(DetailScraper):
         try:
             meta_div = soup.select_one('div.col-right .infor')
             if meta_div:
-                txt = meta_div.get_text("|", strip=True)
-                id_match = re.search(r"Asset Code:\|(\d+)", txt)
-                date_match = re.search(r"Date posted:\s*(\d{2}-\d{2}-\d{4})", txt)
+                txt = meta_div.get_text(" ", strip=True)
+                id_match = re.search(r"(?:Mã tài sản|Asset Code):\s*(\d+)", txt)
+                date_match = re.search(r"(?:Ngày đăng|Date posted):\s*(\d{2}-\d{2}-\d{4})", txt)
                 
                 if id_match:
                     metadata['post_id'] = id_match.group(1)
@@ -161,28 +170,3 @@ class CafelandDetailScraper(DetailScraper):
         except Exception as e:
             logger.error(f"Error extracting metadata: {str(e)}")
         return metadata
-
-    def _parse_price(self, price_text: str) -> Dict:
-        price_data = {
-            'amount': 0,
-            'currency': 'VND',
-            'unit': 'total',
-            'original_text': price_text
-        }
-        try:
-            clean_price = price_text.lower().replace(' ', '')
-            amount = extract_number(clean_price)
-            if amount is None:
-                return price_data
-
-            if 'tỷ' in clean_price:
-                amount *= 1000000000
-                price_data['unit'] = 'billion'
-            elif 'triệu' in clean_price:
-                amount *= 1000000
-                price_data['unit'] = 'million'
-            price_data['amount'] = amount
-
-        except Exception as e:
-            logger.error(f"Error parsing price '{price_text}': {str(e)}")
-        return price_data
